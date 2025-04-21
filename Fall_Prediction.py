@@ -8,11 +8,18 @@ gravitational_acceleration = 9.80665
 
 def main():
  weight = 0.079 # 単位はkg
- hegiht = 5.9895
- 
+ hegiht = 8
+ wind_speed = 2 # 風速 s/m
+ print("=== 垂直方向のみ ===")
  time, v = Freefall(hegiht, 0, weight)
  print(f"落下時間: {time:.2f} 秒")
  print(f"着地時の速度: {v:.2f} m/s")
+ print("=== 2D落下（風あり） ===")
+ time2d, verocity_z, drift = Freefall2D(hegiht, 0, 0, weight, wind_speed)
+ print(f"落下時間: {time2d:.2f} 秒")
+ print(f"着地時の速度: {verocity_z:.2f} m/s")
+ print(f"横方向のドリフト: {drift:.2f} m")
+
 """
  横向きと縦向きを考慮する力
  空気抵抗がある場合は速度が時々刻々と変化するため、加算で求める
@@ -26,12 +33,15 @@ def Freefall2D(height_now, verocity_now_z, verocity_now_xy, weight, wind_speed):
  del_time = 0.1
  height = height_now
  verocity_xy = verocity_now_xy
+ verocity_z = verocity_now_z
  g = gravitational_acceleration
  time = 0
  x_position = 0
+
  while height > 0:
   # x方向の空気抵抗（風を考慮）
-  Fd_x = 0.5 * air_density * (verocity_xy - wind_speed)**2 * drag_coefficent * parachute_s * np.sign(vx - wind_speed)
+  relative_wind_x = verocity_now_xy - wind_speed
+  Fd_x = 0.5 * air_density * relative_wind_x**2 * drag_coefficent * parachute_s * np.sign(relative_wind_x)
   a_x = -Fd_x / weight
   verocity_xy += a_x * del_time
   x_position += verocity_xy * del_time
@@ -42,6 +52,8 @@ def Freefall2D(height_now, verocity_now_z, verocity_now_xy, weight, wind_speed):
   verocity_z += a_z * del_time
   height -= verocity_z * del_time
   time += del_time
+
+  return time, verocity_z, x_position
 
 """
  直線的な落下
@@ -64,7 +76,7 @@ def Freefall(height_now, verocity_now_z, weight):
    height -= verocity_z * del_time
    time += del_time
 
- return time, verocity
+ return time, verocity_z
 
 if __name__ == "__main__":
  main()
