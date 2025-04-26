@@ -57,7 +57,7 @@ def Freefall2D(height_now, verocity_now_z, verocity_now_xy, weight, wind_speed):
   height -= verocity_z * del_time
   time += del_time
 
-  return time, verocity_z, x_position
+ return time, verocity_z, x_position
 
 """
  直線的な落下
