@@ -1,10 +1,15 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from ahrs.filters import Madgwick
+
+
 air_density = 1.206 # 1気圧の空気密度
 parachute_fai = 0.18 # パラシュートの半径
 inner_fai = 0.05
 parachute_s = parachute_fai * parachute_fai * np.pi  - (inner_fai*inner_fai*np.pi) # パラシュートの面積
 drag_coefficent = 0.5 # 抵抗係数
 gravitational_acceleration = 9.80665
+del_time = 0.1
 
 def main():
  weight = 0.079 # 単位はkg
@@ -30,7 +35,6 @@ def main():
 """
 def Freefall2D(height_now, verocity_now_z, verocity_now_xy, weight, wind_speed):
  # X方向の空気抵抗(風)
- del_time = 0.1
  height = height_now
  verocity_xy = verocity_now_xy
  verocity_z = verocity_now_z
@@ -77,6 +81,56 @@ def Freefall(height_now, verocity_now_z, weight):
    time += del_time
 
  return time, verocity_z
+
+
+#ここから先は，実測値に対する計算を行う
+
+
+"""
+ 9軸センサによる姿勢計算
+ time_array 時間配列
+ gyro_data ジャイロ配列
+ accel_data 加速度配列
+ mag_data 磁気配列
+"""
+def MadgwickCalc(time_array, gyro_data, accel_data, mag_data, sample_number):
+ madgwick_filter = Madgwick(sampleperiod=del_time)
+ q = np.array([1, 0, 0, 0])  # 初期クォータニオン（単位クォータニオン）
+ # 結果を保存する配列
+ quaternions = np.zeros((sample_number, 4))
+ euler_angles = np.zeros((sample_number, 3))  # [Roll, Pitch, Yaw]（単位: ラジアン）
+ # --- フィルタ更新ループ ---
+ for i in range(sample_number):  
+  # ここでは磁気センサも利用するので updateMARG を利用します
+  q = madgwick_filter.updateMARG(q, gyr=gyro_data[i, :], acc=accel_data[i, :], mag=mag_data[i, :])
+  quaternions[i, :] = q
+    
+  # クォータニオンからオイラー角（Roll, Pitch, Yaw）に変換
+  q0, q1, q2, q3 = q
+  # Roll: X軸周りの回転
+  roll = np.arctan2(2*(q0*q1 + q2*q3), 1 - 2*(q1**2 + q2**2))
+  # Pitch: Y軸周り（ここでは arcsin で得る）
+  pitch = np.arcsin(2*(q0*q2 - q3*q1))
+  # Yaw: Z軸周りの回転
+  yaw = np.arctan2(2*(q0*q3 + q1*q2), 1 - 2*(q2**2 + q3**2))
+  euler_angles[i, :] = np.array([roll, pitch, yaw])
+  # --- 結果のプロット ---
+  plt.figure(figsize=(10, 6))
+  plt.plot(time_array, euler_angles[:, 0], label='Roll')
+  plt.plot(time_array, euler_angles[:, 1], label='Pitch')
+  plt.plot(time_array, euler_angles[:, 2], label='Yaw')
+  plt.xlabel('Time [s]')
+  plt.ylabel('Angle [rad]')
+  plt.title('Attitude Estimation using Madgwick Filter')
+  plt.legend()
+  plt.grid(True)
+  # ファイル名の入力
+  filename = input("保存するファイル名（拡張子.pngは不要）: ")
+  plt.savefig(filename + '.png')  # PNG形式で保存
+  plt.close()  # プロットを閉じる
+
+
+
 
 if __name__ == "__main__":
  main()
