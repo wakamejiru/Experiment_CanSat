@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
 # 物体の長方形の頂点
-length = 0.018  # 奥行 (m)
+length = 0.018 # 奥行 (m)
 width = 0.020  # 幅 (m)
 height = 0.095  # 高さ (m)
 # アニメーションの設定
@@ -94,7 +94,7 @@ def CalcCMG(gyro_datas_x, gyro_datas_y, gyro_datas_z, time_datas, data_num):
     plt.legend()
     plt.grid(True)
 	# ファイル名の入力
-    filename = input("保存するファイル名（拡張子.pngは不要）: ")
+    #filename = input("保存するファイル名（拡張子.pngは不要）: ")
     #plt.savefig(filename + '.png')  # PNG形式で保存
     plt.close()  # プロットを閉じる
     
@@ -103,6 +103,7 @@ def CalcCMG(gyro_datas_x, gyro_datas_y, gyro_datas_z, time_datas, data_num):
      
 # 3Dアニメの初期プロット
 def anime_init():
+    scale = 0.05  # 全体の表示範囲（m）を大きめに設定
     ax.set_xlim([-length, length])
     ax.set_ylim([-width, width])
     ax.set_zlim([-height, height])
@@ -111,7 +112,7 @@ def anime_init():
 "3Dのアニメーションを作成"
 def Create3D(gyro_rad_x, gyro_rad_y, gyro_rad_z):
 	# アニメーションの実行
-	ani = FuncAnimation(fig, update, fargs=(gyro_rad_x, gyro_rad_y, gyro_rad_z, vertices), init_func=anime_init, blit=False, interval=10)
+	ani = FuncAnimation(fig, update, fargs=(gyro_rad_x, gyro_rad_y, gyro_rad_z, vertices), init_func=anime_init, blit=False, interval=100)
 	# 表示
 	plt.show()
 	
@@ -143,7 +144,7 @@ def rotation_matrix(axis, theta):
 def update(frame, gyro_rad_x, gyro_rad_y, gyro_rad_z, vertices):
     global theta_x, theta_y, theta_z
     delta_time = 0.1  # 時間間隔
-
+    
     # 角速度から回転角度の変化を計算
     theta_x += gyro_rad_x[frame] * delta_time
     theta_y += gyro_rad_y[frame] * delta_time
@@ -161,10 +162,12 @@ def update(frame, gyro_rad_x, gyro_rad_y, gyro_rad_z, vertices):
 
 	# プロットを更新
     ax.cla()  # 現在のプロットをクリア
+    #anime_init()
+    max_range = np.max(np.abs(rotated_vertices)) * 1.0  # 安全マージンを20%くらい取る
+
     ax.set_xlim([-length, length])
     ax.set_ylim([-width, width])
     ax.set_zlim([-height, height])
-
     # 長方形のエッジを描画
     edges = [
         [0, 1], [1, 2], [2, 3], [3, 0],  # 底面
