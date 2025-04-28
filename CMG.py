@@ -1,6 +1,28 @@
 "落下データより必要なCMGを算出する" 
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.animation import FuncAnimation
+# 物体の長方形の頂点
+length = 0.018  # 奥行 (m)
+width = 0.020  # 幅 (m)
+height = 0.095  # 高さ (m)
+# アニメーションの設定
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+# 物体の初期の回転角度
+theta_x = 0  # X軸回転角度
+theta_y = 0  # Y軸回転角度
+theta_z = 0  # Z軸回転角度
+# 長方体の8つの頂点座標
+vertices = np.array([[-length/2, -width/2, -height/2],
+					[ length/2, -width/2, -height/2],
+					[ length/2,  width/2, -height/2],
+					[-length/2,  width/2, -height/2],
+					[-length/2, -width/2,  height/2],
+					[ length/2, -width/2,  height/2],
+					[ length/2,  width/2,  height/2],
+					[-length/2,  width/2,  height/2]])
 
 def main():
 	gyro_datas_x = [0.841, 0.833, 0.852, 0.848, 0.791, 0.781, 0.891, 0.802, 0.884, 0.843, 0.875, 0.734, 0.769, 0.829, 0.786, 0.919, 0.889, 0.807, 0.834, 0.927, 0.886, 0.963, 1.007, 0.892, 0.855, 0.765, 0.479, 0.424, 0.633, 0.674, 0.577, 0.496, 0.572, 0.648, 0.587, 0.371, 0.448, 0.487, 0.599, 0.622, 0.655, 0.455, 0.992, 0.644, 0.99, 1.021, 0.877, 0.821, 0.805, 0.865, 0.802, 0.796, 0.813, 0.716, 0.799, 0.802, 0.855, 0.913, 0.834, 0.839, 0.806, 0.819, 0.783, 0.834, 0.877, 0.854, 0.726, 0.746, 0.785, 0.771, 0.786, 0.787, 0.817, 0.701, 0.725, 0.645, 0.441, 0.57, 0.262, 0.184, 0.29, 0.399, 0.321, 0.263, 0.251, 0.306, 0.274, 0.303, 0.342, 0.304, 0.296, 0.316, 0.348, 0.335, 0.336, 0.372, 0.37, 0.372, 0.362, 0.342, 0.337, 0.345, 0.337, 0.318, 0.329, 0.303, 0.309, 0.318, 0.316, 0.322, 0.315, 0.325, 0.321, 0.309, 0.313, 0.332, 0.346, 0.31, 0.297, 0.278, 0.294, 0.317, 0.293, 0.277, 0.274, 0.271, 0.257, 0.278, 0.292, 0.303, 0.257, 0.289, 0.347, 0.375, 0.379, 0.315, 0.404, 0.465, 0.519, 0.494, 0.544, 0.526, 0.514, 0.52, 0.501, 0.531, 0.519, 0.599, 0.597, 0.576, 0.601, 0.574, 0.548, 0.543, 0.53, 0.566, 0.567, 0.637, 0.087, 0.137, 0.341, 0.457, 0.425, 0.532, 0.565, 0.505, 0.836, 0.717, 0.572, 0.349, 0.421, 0.542, 0.745, 0.76, 0.656, 0.586, 0.515, 0.382, 0.149, -0.022, 0.442, 0.516, -0.021, -0.553, -1, -0.268, -0.287, -0.219, -0.228, -0.375, -0.255, -0.25, -0.136, -0.204, -0.08, 0.059, -0.083, -0.041, -0.005, -0.016, -0.079, -0.056, 0.084, 0.038, 0.122, 0.098, 0.053, 0.005, -0.008, 0.148, 0.204, 0.268, 0.26, 0.234, 0.216, 0.249, 0.285, 0.152, 0.209, 0.37, 0.091, 0.419, 0.217, 0.334, 0.267, 0.339, 0.226, 0.307, 0.295]
@@ -14,7 +36,6 @@ def main():
 "CMGの値を計算する"
 def CalcCMG(gyro_datas_x, gyro_datas_y, gyro_datas_z, time_datas, data_num):
 	# 角速度をラジアン毎秒に変換（deg/s -> rad/s）
-    
     gyro_rad_x = np.deg2rad(gyro_datas_x)
     gyro_rad_y = np.deg2rad(gyro_datas_y)
     gyro_rad_z = np.deg2rad(gyro_datas_z)
@@ -31,12 +52,14 @@ def CalcCMG(gyro_datas_x, gyro_datas_y, gyro_datas_z, time_datas, data_num):
 	# Zの角速度
     alpha_list_z = np.diff(gyro_rad_z, axis=0) / delta_time  # 微分（角速度の変化量）
     # 配列サイズ合わせ
-    alpha_list_z = np.append(alpha_list_z, alpha_list_z[-1])  # 最後の値を追加してサイズを合わせる
-
-	# 物体の物理特性（仮定）
+    alpha_list_z = np.append(alpha_list_z, alpha_list_z[-1])  # 最後の値を追加してサイズを合わせ
+    a_x = 0.020
+    b_z = 0.045
+    c_y = 0.018 # 物体の物理特性(仮定)
     mass = 0.0641250  # 質量（kg）
-    height = 0.09  # 高さ（m）
-    radius = 0.025  # 半径（m）
+    """
+    height = 0.09  # 高さ（m）# 大きさを直方体として再考慮
+	radius = 0.025  # 半径（m）
 	# 円柱の慣性モーメント計算
 	# X軸回転（横軸）
     I_x = (1 / 12) * mass * (3 * radius**2 + height**2)
@@ -44,11 +67,23 @@ def CalcCMG(gyro_datas_x, gyro_datas_y, gyro_datas_z, time_datas, data_num):
     I_y = (1 / 12) * mass * (3 * radius**2 + height**2)
 	# Z軸回転（中心軸）
     I_z = (1 / 2) * mass * radius**2
+    """
+    #円柱から直方体にして計算
+	
+    I_x = mass / 4 *(a_x**2+b_z**2)
+    I_y = mass / 4 *(c_y**2+b_z**2)
+    I_z = mass / 4 *(c_y**2+a_x**2)
 	# トルクの計算（τ = I * α）
 	# 各軸（X, Y, Z）のトルクを計算
     torque_x = I_x * alpha_list_x  # X軸のトルク
     torque_y = I_y * alpha_list_y  # Y軸のトルク
     torque_z = I_z * alpha_list_z  # Z軸のトルク
+    # 合成トルクの大きさを計算
+    torque_magnitude = np.sqrt(torque_x**2 + torque_y**2 + torque_z**2)
+    # 最大トルクを求める
+    max_torque = np.max(torque_magnitude)
+    print(f"最大トルク: {max_torque:.30f} N·m")
+
     plt.figure(figsize=(10, 6))
     plt.plot(time_datas, torque_x, label="Torque X")
     plt.plot(time_datas, torque_y, label="Torque Y")
@@ -60,8 +95,89 @@ def CalcCMG(gyro_datas_x, gyro_datas_y, gyro_datas_z, time_datas, data_num):
     plt.grid(True)
 	# ファイル名の入力
     filename = input("保存するファイル名（拡張子.pngは不要）: ")
-    plt.savefig(filename + '.png')  # PNG形式で保存
+    #plt.savefig(filename + '.png')  # PNG形式で保存
     plt.close()  # プロットを閉じる
+    
+	# 3Dアニメに変換
+    Create3D(gyro_rad_x, gyro_rad_y, gyro_rad_z)
+     
+# 3Dアニメの初期プロット
+def anime_init():
+    ax.set_xlim([-length, length])
+    ax.set_ylim([-width, width])
+    ax.set_zlim([-height, height])
+    return []
+
+"3Dのアニメーションを作成"
+def Create3D(gyro_rad_x, gyro_rad_y, gyro_rad_z):
+	# アニメーションの実行
+	ani = FuncAnimation(fig, update, fargs=(gyro_rad_x, gyro_rad_y, gyro_rad_z, vertices), init_func=anime_init, blit=False, interval=10)
+	# 表示
+	plt.show()
+	
+# 回転行列の定義
+def rotation_matrix(axis, theta):
+    """
+    回転行列を生成する関数
+    axis: 回転軸 ('x', 'y', 'z')
+    theta: 回転角度（ラジアン）
+    """
+    if axis == 'x':
+        return np.array([[1, 0, 0],
+                         [0, np.cos(theta), -np.sin(theta)],
+                         [0, np.sin(theta), np.cos(theta)]])
+    elif axis == 'y':
+        return np.array([[np.cos(theta), 0, np.sin(theta)],
+                         [0, 1, 0],
+                         [-np.sin(theta), 0, np.cos(theta)]])
+    elif axis == 'z':
+        return np.array([[np.cos(theta), -np.sin(theta), 0],
+                         [np.sin(theta), np.cos(theta), 0],
+                         [0, 0, 1]])
+    return np.eye(3)
+
+
+
+
+# 更新関数
+def update(frame, gyro_rad_x, gyro_rad_y, gyro_rad_z, vertices):
+    global theta_x, theta_y, theta_z
+    delta_time = 0.1  # 時間間隔
+
+    # 角速度から回転角度の変化を計算
+    theta_x += gyro_rad_x[frame] * delta_time
+    theta_y += gyro_rad_y[frame] * delta_time
+    theta_z += gyro_rad_z[frame] * delta_time
+
+    # X, Y, Z 軸回転の順番で回転行列を適用
+    rot_x = rotation_matrix('x', theta_x)
+    rot_y = rotation_matrix('y', theta_y)
+    rot_z = rotation_matrix('z', theta_z)
+
+    # 物体の頂点を回転
+    rotated_vertices = np.dot(vertices, rot_x)
+    rotated_vertices = np.dot(rotated_vertices, rot_y)
+    rotated_vertices = np.dot(rotated_vertices, rot_z)
+
+	# プロットを更新
+    ax.cla()  # 現在のプロットをクリア
+    ax.set_xlim([-length, length])
+    ax.set_ylim([-width, width])
+    ax.set_zlim([-height, height])
+
+    # 長方形のエッジを描画
+    edges = [
+        [0, 1], [1, 2], [2, 3], [3, 0],  # 底面
+        [4, 5], [5, 6], [6, 7], [7, 4],  # 上面
+        [0, 4], [1, 5], [2, 6], [3, 7]   # 側面
+    ]
+    for edge in edges:
+        ax.plot([rotated_vertices[edge[0], 0], rotated_vertices[edge[1], 0]],
+                [rotated_vertices[edge[0], 1], rotated_vertices[edge[1], 1]],
+                [rotated_vertices[edge[0], 2], rotated_vertices[edge[1], 2]], color='b')
+
+    return []
+
 
 if __name__ == "__main__":
     main()
