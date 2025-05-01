@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from matplotlib.animation import FFMpegWriter
+
 # 物体の長方形の頂点
 length = 0.018 # 奥行 (m)
 width = 0.020  # 幅 (m)
@@ -113,9 +115,14 @@ def anime_init():
 "3Dのアニメーションを作成"
 def Create3D(gyro_rad_x, gyro_rad_y, gyro_rad_z):
 	# アニメーションの実行
-	ani = FuncAnimation(fig, update, fargs=(gyro_rad_x, gyro_rad_y, gyro_rad_z, vertices), init_func=anime_init, blit=False, interval=100)
-	# 表示
-	plt.show()
+	ani = FuncAnimation(fig, update, fargs=(gyro_rad_x, gyro_rad_y, gyro_rad_z, vertices), init_func=anime_init, blit=False, interval=100, save_count=len(gyro_rad_x))
+	
+    # 表示
+	#plt.show()# 保存用のwriterを作成（fps=20など自由に調整OK）
+	writer = FFMpegWriter(fps=20)
+
+    # 保存
+	ani.save("rotation_animation.mp4", writer=writer)
 	
 # 回転行列の定義
 def rotation_matrix(axis, theta):
@@ -145,7 +152,11 @@ def rotation_matrix(axis, theta):
 def update(frame, gyro_rad_x, gyro_rad_y, gyro_rad_z, vertices):
     global theta_x, theta_y, theta_z
     delta_time = 0.1  # 時間間隔
-    
+
+    # フレーム数超え防止（動画保存時に多めに呼ばれても大丈夫にする）
+    if frame >= len(gyro_rad_x):
+        return []
+
     # 角速度から回転角度の変化を計算
     theta_x += gyro_rad_x[frame] * delta_time
     theta_y += gyro_rad_y[frame] * delta_time
@@ -160,7 +171,21 @@ def update(frame, gyro_rad_x, gyro_rad_y, gyro_rad_z, vertices):
     rotated_vertices = np.dot(vertices, rot_x)
     rotated_vertices = np.dot(rotated_vertices, rot_y)
     rotated_vertices = np.dot(rotated_vertices, rot_z)
+    # 回転ベクトル（角速度）を取得（現在のフレーム）
+    # 角速度ベクトルから回転リングを描く
+    
+    # 回転行列を合成して物体の現在の姿勢に変換
+    R_total = rot_x @ rot_y @ rot_z
 
+    # 回転ベクトルをローカル座標系に合わせて回す
+    omega_world = np.array([gyro_rad_x[frame], gyro_rad_y[frame], gyro_rad_z[frame]])
+    omega_local = R_total @ omega_world
+    # 回転ベクトル（角速度）を取得（現在のフレーム）
+    omega_vector = np.array([
+        gyro_rad_x[frame],
+        gyro_rad_y[frame],
+        gyro_rad_z[frame]
+    ])
 	# プロットを更新
     ax.cla()  # 現在のプロットをクリア
     #anime_init()
@@ -170,18 +195,68 @@ def update(frame, gyro_rad_x, gyro_rad_y, gyro_rad_z, vertices):
     ax.set_ylim([-width, width])
     ax.set_zlim([-height, height])
     # 長方形のエッジを描画
-    edges = [
-        [0, 1], [1, 2], [2, 3], [3, 0],  # 底面
-        [4, 5], [5, 6], [6, 7], [7, 4],  # 上面
-        [0, 4], [1, 5], [2, 6], [3, 7]   # 側面
+    faces = [
+        [rotated_vertices[0], rotated_vertices[1], rotated_vertices[2], rotated_vertices[3]],  # 底面
+        [rotated_vertices[4], rotated_vertices[5], rotated_vertices[6], rotated_vertices[7]],  # 上面
+        [rotated_vertices[0], rotated_vertices[1], rotated_vertices[5], rotated_vertices[4]],  # 側面1
+        [rotated_vertices[2], rotated_vertices[3], rotated_vertices[7], rotated_vertices[6]],  # 側面2
+        [rotated_vertices[1], rotated_vertices[2], rotated_vertices[6], rotated_vertices[5]],  # 側面3
+        [rotated_vertices[0], rotated_vertices[3], rotated_vertices[7], rotated_vertices[4]]   # 側面4
     ]
-    for edge in edges:
-        ax.plot([rotated_vertices[edge[0], 0], rotated_vertices[edge[1], 0]],
-                [rotated_vertices[edge[0], 1], rotated_vertices[edge[1], 1]],
-                [rotated_vertices[edge[0], 2], rotated_vertices[edge[1], 2]], color='b')
+
+    #回転盤の表示
+    draw_rotation_circle(ax, omega_local, scale=0.5)
+
+    # 面ごとの色設定
+    face_colors = ['red', 'blue', 'green', 'yellow', 'cyan', 'magenta']
+
+    # ポリゴンで面を描画（透過あり）
+    poly3d = Poly3DCollection(faces, facecolors=face_colors, linewidths=1, edgecolors='k', alpha=0.5)
+    ax.add_collection3d(poly3d)
 
     return []
 
+"""
+円盤を描く
+"""
+def draw_rotation_circle(ax, omega_vec, scale=0.5, steps=100):
+    # omega_vec がゼロに近ければスキップ
+    if np.linalg.norm(omega_vec) < 1e-6:
+        return
+
+    # 回転軸を正規化
+    axis = omega_vec / np.linalg.norm(omega_vec)
+
+    # 回転の強さに比例した半径
+    radius = scale * np.linalg.norm(omega_vec)
+
+    # 円弧の点を作る（XY平面上の円）
+    theta = np.linspace(0, 2 * np.pi, steps)
+    circle_pts = np.vstack([radius * np.cos(theta),
+                            radius * np.sin(theta),
+                            np.zeros_like(theta)])  # XY平面円
+
+    # 回転軸（Z軸→axis）への回転行列を作成
+    def rotation_matrix_from_vectors(a, b):
+        a = a / np.linalg.norm(a)
+        b = b / np.linalg.norm(b)
+        v = np.cross(a, b)
+        c = np.dot(a, b)
+        s = np.linalg.norm(v)
+        if s == 0:
+            return np.eye(3)
+        kmat = np.array([[0, -v[2], v[1]],
+                         [v[2], 0, -v[0]],
+                         [-v[1], v[0], 0]])
+        return np.eye(3) + kmat + (kmat @ kmat) * ((1 - c) / (s ** 2))
+
+    R = rotation_matrix_from_vectors(np.array([0, 0, 1]), axis)
+
+    # 円を回転軸方向に回転
+    rotated_circle = R @ circle_pts
+
+    # 描画（原点中心にリング）
+    ax.plot(rotated_circle[0], rotated_circle[1], rotated_circle[2], color='red', linewidth=2)
 
 if __name__ == "__main__":
     main()
