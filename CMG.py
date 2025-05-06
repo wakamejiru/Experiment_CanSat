@@ -258,5 +258,7 @@ def draw_rotation_circle(ax, omega_vec, scale=0.5, steps=100):
     # 描画（原点中心にリング）
     ax.plot(rotated_circle[0], rotated_circle[1], rotated_circle[2], color='red', linewidth=2)
 
+
+
 if __name__ == "__main__":
     main()
