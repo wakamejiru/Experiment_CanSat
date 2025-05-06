@@ -205,7 +205,7 @@ def update(frame, gyro_rad_x, gyro_rad_y, gyro_rad_z, vertices):
     ]
 
     #回転盤の表示
-    draw_rotation_circle(ax, omega_local, scale=0.5)
+    #draw_rotation_circle(ax, omega_local, scale=0.5)
 
     # 面ごとの色設定
     face_colors = ['red', 'blue', 'green', 'yellow', 'cyan', 'magenta']
