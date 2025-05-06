@@ -7,7 +7,6 @@ from scipy.spatial.transform import Rotation as R
 
 # --- 0. シミュレーション・物理パラメータ ---
 DT = 0.01  # シミュレーション時間ステップ (s)
-TOTAL_TIME = 10.0  # 総シミュレーション時間 (s)
 
 # CanSat パラメータ (例)
 MASS_CANSAT = 0.0641250  # kg
@@ -54,23 +53,36 @@ gyro_datas_z = [-0.609,-0.585,-0.604,-0.622,-0.567,-0.607,-0.665,-0.596,-0.662,-
 # ※これらのリストが同じ長さで、対応する時間軸があることを想定しています。
 # ※もし時間軸データがない場合は、サンプリングレートからDTを決定する必要があります。
 
-if gyro_datas_x and gyro_datas_y and gyro_datas_z: # データが存在するか確認
-    # 落下データの最初の値をシミュレーションの初期角速度として使用 (dpsからrad/sへ変換)
-    initial_omega_x_rad_s = np.deg2rad(gyro_datas_x[0])
-    initial_omega_y_rad_s = np.deg2rad(gyro_datas_y[0])
-    initial_omega_z_rad_s = np.deg2rad(gyro_datas_z[0])
-    initial_omega_body_rad_s = np.array([initial_omega_x_rad_s, initial_omega_y_rad_s, initial_omega_z_rad_s])
-    print(f"Using initial angular velocity from gyro data (rad/s): {initial_omega_body_rad_s}")
-else:
-    # データがない場合のフォールバック (以前のダミーデータ)
-    print("Gyro data not found or empty. Using default initial angular velocity.")
-    initial_omega_body_rad_s = np.deg2rad(np.array([10.0, -20.0, 5.0])) # 例: [rad/s]
+if not (gyro_datas_x and gyro_datas_y and gyro_datas_z and \
+        len(gyro_datas_x) == len(gyro_datas_y) == len(gyro_datas_z) and \
+        len(gyro_datas_x) > 0):
+    print("Error: Gyro data is missing, empty, or inconsistent in length.")
+    print("Please provide valid gyro_datas_x, gyro_datas_y, gyro_datas_z lists.")
+    exit() # エラー終了
+
+# シミュレーションのステップ数を角速度データの長さに合わせる
+num_steps = len(gyro_datas_x)
+print(f"Number of simulation steps will be: {num_steps} (based on gyro data length)")
+
+# シミュレーションの時間軸を生成
+time_hist = np.arange(0, num_steps * DT, DT)
+# arangeの仕様上、ステップ数が一つずれる可能性があるので、長さをnum_stepsに合わせる
+if len(time_hist) > num_steps:
+    time_hist = time_hist[:num_steps]
+elif len(time_hist) < num_steps: # DTが大きすぎたりした場合の稀なケース
+    time_hist = np.linspace(0, (num_steps -1) * DT, num_steps)
+
+
+# 初期角速度をデータから取得
+initial_omega_x_rad_s = np.deg2rad(gyro_datas_x[0])
+initial_omega_y_rad_s = np.deg2rad(gyro_datas_y[0])
+initial_omega_z_rad_s = np.deg2rad(gyro_datas_z[0])
+initial_omega_body_rad_s = np.array([initial_omega_x_rad_s, initial_omega_y_rad_s, initial_omega_z_rad_s])
+print(f"Using initial angular velocity from gyro data (rad/s): {initial_omega_body_rad_s}")
 
 initial_orientation_quat = R.from_euler('xyz', [0,0,0], degrees=True) # 初期姿勢 (クォータニオン)
 
 # --- 2. 状態変数 ---
-time_hist = np.arange(0, TOTAL_TIME, DT)
-num_steps = len(time_hist)
 
 # CanSatの状態履歴
 omega_body_hist_rad_s = np.zeros((num_steps, 3))
@@ -247,9 +259,8 @@ def update_animation(frame):
     ]
     poly3d = Poly3DCollection(faces, facecolors='cyan', linewidths=1, edgecolors='k', alpha=0.7)
     ax_anim.add_collection3d(poly3d)
-    ax_anim.view_init(elev=20, azim=30 + frame*0.5) # カメラアングル
     return []
 
 ani = FuncAnimation(fig_anim, update_animation, frames=num_steps, blit=False, interval=DT*1000)
-# ani.save("cansat_cmg_animation.mp4", writer=FFMpegWriter(fps=int(1/DT))) # 保存する場合
+#ani.save("cansat_cmg_animation.mp4", writer=FFMpegWriter(fps=int(1/DT))) # 保存する場合
 plt.show()
