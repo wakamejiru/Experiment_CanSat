@@ -97,8 +97,8 @@ def CalcCMG(gyro_datas_x, gyro_datas_y, gyro_datas_z, time_datas, data_num):
     plt.legend()
     plt.grid(True)
 	# ファイル名の入力
-    #filename = input("保存するファイル名（拡張子.pngは不要）: ")
-    #plt.savefig(filename + '.png')  # PNG形式で保存
+    filename = input("保存するファイル名（拡張子.pngは不要）: ")
+    plt.savefig(filename + '.png')  # PNG形式で保存
     plt.close()  # プロットを閉じる
     
 	# 3Dアニメに変換
